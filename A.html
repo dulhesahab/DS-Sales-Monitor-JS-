@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sales Monitoring & Grading System</title>
+  <!-- Chart.js CDN (ऑनलाइन, आप ऑफ़लाइन इस्तेमाल के लिए लोकली भी होस्ट कर सकते हैं) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* --- बेसिक रिसेट और ग्लोबल स्टाइल्स --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; color: #333; }
+    header { background: #1976d2; color: #fff; padding: 20px; text-align: center; }
+    header img { height: 50px; vertical-align: middle; }
+    header h1 { display: inline-block; margin-left: 15px; vertical-align: middle; font-size: 1.8rem; }
+    .container { max-width: 1200px; margin: auto; padding: 20px; }
+    .hidden { display: none; }
+    /* --- Login Form --- */
+    .login-form {
+      max-width: 400px; margin: 50px auto; background: #fff; padding: 30px;
+      border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .login-form h2 { text-align: center; margin-bottom: 20px; }
+    .login-form input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
+    .login-form button {
+      width: 100%; padding: 10px; background: #1976d2; color: #fff;
+      border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;
+    }
+    /* --- Sales Report Submission Form --- */
+    .report-form {
+      background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .report-form h2 { margin-bottom: 20px; }
+    .report-form .form-group { margin-bottom: 15px; }
+    .report-form label { display: block; margin-bottom: 5px; }
+    .report-form input, .report-form select {
+      width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;
+    }
+    .report-form button {
+      background: #388e3c; color: #fff; padding: 10px; border: none;
+      border-radius: 4px; cursor: pointer;
+    }
+    /* --- Admin Dashboard Styles --- */
+    .dashboard {
+      background: #fff; padding: 20px; border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px;
+    }
+    .dashboard h2 { margin-bottom: 20px; }
+    .filter-section { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
+    .filter-section .form-group { flex: 1; min-width: 150px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    table th, table td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+    table th { background: #1976d2; color: #fff; }
+    .btn {
+      padding: 10px 15px; background: #1976d2; color: #fff; border: none;
+      border-radius: 4px; cursor: pointer; margin-right: 10px;
+    }
+    .btn:hover { background: #0d47a1; }
+    .chart-container { width: 100%; height: 300px; margin-bottom: 20px; }
+    .manage-users {
+      background: #fff; padding: 20px; border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px;
+    }
+    .manage-users h2 { margin-bottom: 20px; }
+    @media (max-width: 768px) {
+      .filter-section { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header with Company Logo & Name -->
+  <header>
+    <img src="https://via.placeholder.com/50" alt="Company Logo">
+    <h1>My Retail Company</h1>
+  </header>
+  <div class="container">
+    <!-- Login Section -->
+    <div id="loginSection" class="login-form">
+      <h2>लॉगिन करें</h2>
+      <input type="text" id="loginUsername" placeholder="यूजरनेम (admin/sales)">
+      <input type="password" id="loginPassword" placeholder="पासवर्ड">
+      <button onclick="login()">लॉगिन</button>
+    </div>
+
+    <!-- Sales Person Daily Report Submission (Non-admin users) -->
+    <div id="salesReportSection" class="report-form hidden">
+      <h2>डेली सेल्स रिपोर्ट सबमिशन</h2>
+      <div class="form-group">
+        <label for="spName">सेल्स पर्सन का नाम:</label>
+        <input type="text" id="spName" placeholder="नाम">
+      </div>
+      <div class="form-group">
+        <label for="branch">ब्रांच:</label>
+        <select id="branch">
+          <option value="north">North</option>
+          <option value="south">South</option>
+          <option value="east">East</option>
+          <option value="west">West</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="reportDate">दिनांक:</label>
+        <input type="date" id="reportDate">
+      </div>
+      <div class="form-group">
+        <label for="dailyTarget">आज का टारगेट (₹):</label>
+        <input type="number" id="dailyTarget" placeholder="टारगेट">
+      </div>
+      <div class="form-group">
+        <label for="achieved">आज की बिक्री (₹):</label>
+        <input type="number" id="achieved" placeholder="अचीवमेंट">
+      </div>
+      <div class="form-group">
+        <label for="numBills">बिल्स की संख्या:</label>
+        <input type="number" id="numBills" placeholder="बिल्स">
+      </div>
+      <div class="form-group">
+        <label for="numItems">कुल आइटम्स की संख्या:</label>
+        <input type="number" id="numItems" placeholder="आइटम्स">
+      </div>
+      <button onclick="submitDailyReport()">रिपोर्ट सबमिट करें</button>
+    </div>
+
+    <!-- Admin Dashboard (Only visible to Admin) -->
+    <div id="adminDashboard" class="dashboard hidden">
+      <h2>एडमिन डैशबोर्ड</h2>
+      <!-- Filter Options -->
+      <div class="filter-section">
+        <div class="form-group">
+          <label for="filterBranch">ब्रांच:</label>
+          <select id="filterBranch" onchange="applyFilters()">
+            <option value="all">सभी</option>
+            <option value="north">North</option>
+            <option value="south">South</option>
+            <option value="east">East</option>
+            <option value="west">West</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="filterPeriod">समय अवधि:</label>
+          <select id="filterPeriod" onchange="applyFilters()">
+            <option value="daily">आज</option>
+            <option value="weekly">साप्ताहिक</option>
+            <option value="monthly">मासिक</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="filterDate">दिनांक चयन:</label>
+          <input type="date" id="filterDate" onchange="applyFilters()">
+        </div>
+      </div>
+      <!-- Process Grading and Report Download Buttons -->
+      <button class="btn" onclick="processGrading()">ग्रेडिंग प्रोसेस करें</button>
+      <button class="btn" onclick="downloadAdminReport()">रिपोर्ट डाउनलोड करें</button>
+      <!-- Reports Table -->
+      <table id="reportsTable">
+        <thead>
+          <tr>
+            <th>नाम</th>
+            <th>ब्रांच</th>
+            <th>दिनांक</th>
+            <th>टारगेट</th>
+            <th>अचीवमेंट</th>
+            <th>बिल्स</th>
+            <th>आइटम्स</th>
+            <th>ग्रेड</th>
+            <th>कारण</th>
+            <th>एक्शन प्लान</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- रिपोर्ट रौज़ यहाँ जेनरेट होगी -->
+        </tbody>
+      </table>
+      <!-- Sales Analysis Chart -->
+      <div class="chart-container">
+        <canvas id="analysisChart"></canvas>
+      </div>
+      <!-- Manage Users Section (Admin Only) -->
+      <div class="manage-users">
+        <h2>यूजर प्रबंधन</h2>
+        <div class="form-group">
+          <label for="newUserName">नया सेल्स पर्सन का नाम:</label>
+          <input type="text" id="newUserName" placeholder="नाम">
+        </div>
+        <div class="form-group">
+          <label for="newUserBranch">ब्रांच:</label>
+          <select id="newUserBranch">
+            <option value="north">North</option>
+            <option value="south">South</option>
+            <option value="east">East</option>
+            <option value="west">West</option>
+          </select>
+        </div>
+        <button class="btn" onclick="addUser()">यूजर जोड़ें</button>
+        <hr>
+        <h3>सेल्स पर्सन लिस्ट</h3>
+        <ul id="userList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Service Worker Registration for Offline Mode -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(function(registration) {
+          console.log('Service Worker registered with scope:', registration.scope);
+        })
+        .catch(function(error) {
+          console.log('Service Worker registration failed:', error);
+        });
+    }
+  </script>
+
+  <!-- Main JavaScript Code -->
+  <script>
+    /* --- Data Storage: localStorage का उपयोग (ऑफलाइन सपोर्ट के लिए) --- */
+    let currentUserRole = ""; // "admin" या "sales"
+    let dailyReports = JSON.parse(localStorage.getItem("dailyReports")) || [];
+    let salesUsers = JSON.parse(localStorage.getItem("salesUsers")) || [];
+    // यदि salesUsers खाली हैं, तो डिफ़ॉल्ट यूजर्स जोड़ें
+    if(salesUsers.length === 0) {
+      salesUsers.push({ name: "Ravi", branch: "north" });
+      salesUsers.push({ name: "Sita", branch: "south" });
+      localStorage.setItem("salesUsers", JSON.stringify(salesUsers));
+    }
+
+    /* --- लॉगिन फंक्शन --- */
+    function login() {
+      const username = document.getElementById("loginUsername").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+      // सादा लॉगिन: यदि username "admin" और password "admin123", तो एडमिन; अन्यथा सेल्स पर्सन
+      if(username === "admin" && password === "admin123") {
+        currentUserRole = "admin";
+        showAdminDashboard();
+      } else if(username !== "" && password !== "") {
+        currentUserRole = "sales";
+        showSalesReportForm(username);
+      } else {
+        alert("कृपया सही यूजरनेम और पासवर्ड दर्ज करें");
+      }
+    }
+
+    /* --- सेल्स पर्सन के लिए रिपोर्ट सबमिशन फॉर्म दिखाएँ --- */
+    function showSalesReportForm(userName) {
+      document.getElementById("loginSection").classList.add("hidden");
+      document.getElementById("salesReportSection").classList.remove("hidden");
+      document.getElementById("spName").value = userName;
+    }
+
+    /* --- एडमिन डैशबोर्ड दिखाएँ --- */
+    function showAdminDashboard() {
+      document.getElementById("loginSection").classList.add("hidden");
+      document.getElementById("adminDashboard").classList.remove("hidden");
+      renderReportsTable();
+      renderUserList();
+      updateChart();
+    }
+
+    /* --- सेल्स पर्सन डेली रिपोर्ट सबमिट करें --- */
+    function submitDailyReport() {
+      const name = document.getElementById("spName").value.trim();
+      const branch = document.getElementById("branch").value;
+      const reportDate = document.getElementById("reportDate").value;
+      const dailyTarget = parseFloat(document.getElementById("dailyTarget").value) || 0;
+      const achieved = parseFloat(document.getElementById("achieved").value) || 0;
+      const numBills = parseInt(document.getElementById("numBills").value) || 0;
+      const numItems = parseInt(document.getElementById("numItems").value) || 0;
+      if(name === "" || reportDate === "") {
+        alert("कृपया आवश्यक जानकारी भरें");
+        return;
+      }
+      const report = {
+        id: Date.now(),
+        name,
+        branch,
+        reportDate,
+        dailyTarget,
+        achieved,
+        numBills,
+        numItems
+      };
+      dailyReports.push(report);
+      localStorage.setItem("dailyReports", JSON.stringify(dailyReports));
+      alert("रिपोर्ट सफलतापूर्वक सबमिट हुई!");
+      // फॉर्म क्लियर करें
+      document.getElementById("spName").value = "";
+      document.getElementById("reportDate").value = "";
+      document.getElementById("dailyTarget").value = "";
+      document.getElementById("achieved").value = "";
+      document.getElementById("numBills").value = "";
+      document.getElementById("numItems").value = "";
+    }
+
+    /* --- एडमिन डैशबोर्ड में रिपोर्ट टेबल रेंडर करें --- */
+    function renderReportsTable() {
+      const tbody = document.querySelector("#reportsTable tbody");
+      tbody.innerHTML = "";
+      let filteredReports = applyReportFilters();
+      filteredReports.forEach(report => {
+        const gradeData = report.gradeData || { grade: "", reason: "", actionPlan: "" };
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${report.name}</td>
+          <td>${report.branch}</td>
+          <td>${report.reportDate}</td>
+          <td>${report.dailyTarget}</td>
+          <td>${report.achieved}</td>
+          <td>${report.numBills}</td>
+          <td>${report.numItems}</td>
+          <td>${gradeData.grade}</td>
+          <td>${gradeData.reason}</td>
+          <td>${gradeData.actionPlan}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    /* --- रिपोर्ट फ़िल्टर करें (ब्रांच, अवधि, दिनांक) --- */
+    function applyReportFilters() {
+      let filtered = dailyReports;
+      const filterBranch = document.getElementById("filterBranch").value;
+      const filterPeriod = document.getElementById("filterPeriod").value;
+      const filterDate = document.getElementById("filterDate").value;
+      if(filterBranch !== "all") {
+        filtered = filtered.filter(r => r.branch === filterBranch);
+      }
+      if(filterDate) {
+        const selectedDate = new Date(filterDate);
+        if(filterPeriod === "daily") {
+          filtered = filtered.filter(r => new Date(r.reportDate).toDateString() === selectedDate.toDateString());
+        } else if(filterPeriod === "weekly") {
+          filtered = filtered.filter(r => getWeek(new Date(r.reportDate)) === getWeek(selectedDate) && new Date(r.reportDate).getFullYear() === selectedDate.getFullYear());
+        } else if(filterPeriod === "monthly") {
+          filtered = filtered.filter(r => new Date(r.reportDate).getMonth() === selectedDate.getMonth() && new Date(r.reportDate).getFullYear() === selectedDate.getFullYear());
+        }
+      }
+      return filtered;
+    }
+
+    /* --- सहायक फंक्शन: तारीख का सप्ताह नंबर प्राप्त करें --- */
+    function getWeek(date) {
+      const firstDay = new Date(date.getFullYear(), 0, 1);
+      const pastDays = Math.floor((date - firstDay) / 86400000);
+      return Math.ceil((pastDays + firstDay.getDay() + 1) / 7);
+    }
+
+    /* --- ग्रेडिंग प्रोसेस: चयनित अवधि के आधार पर प्रत्येक सेल्स पर्सन के रिपोर्ट्स को एग्रीगेट कर ग्रेड असाइन करें --- */
+    function processGrading() {
+      let filtered = applyReportFilters();
+      let aggregated = {};
+      filtered.forEach(r => {
+        if(!aggregated[r.name]) {
+          aggregated[r.name] = {
+            name: r.name,
+            branch: r.branch,
+            totalAchieved: 0,
+            totalBills: 0,
+            totalItems: 0,
+            reportCount: 0,
+            dailyTargetSum: 0
+          };
+        }
+        aggregated[r.name].totalAchieved += r.achieved;
+        aggregated[r.name].totalBills += r.numBills;
+        aggregated[r.name].totalItems += r.numItems;
+        aggregated[r.name].reportCount++;
+        aggregated[r.name].dailyTargetSum += r.dailyTarget;
+      });
+      Object.keys(aggregated).forEach(name => {
+        let data = aggregated[name];
+        let avgAchieved = data.totalAchieved / data.reportCount;
+        let avgBills = data.totalBills / data.reportCount;
+        let avgItemsPerBill = data.totalBills > 0 ? data.totalItems / data.totalBills : 0;
+        let attendance = 100; // चूंकि रिपोर्ट सबमिशन हुए हैं, इसे 100% मान लिया है
+        // स्कोर (वेटेज: Achieved 40%, Bills 25%, Items per Bill 20%, Attendance 15%)
+        let score = (avgAchieved * 0.40) + (avgBills * 0.25) + (avgItemsPerBill * 0.20) + (attendance * 0.15);
+        let grade = "", reason = "", actionPlan = "";
+        if(score >= 80) {
+          grade = "A";
+          reason = "उच्च बिक्री, अधिक बिल्स, और अच्छे आइटम्स प्रति बिल।";
+          actionPlan = "स्पेशल इंसेंटिव, प्रमोशन, और ट्रेनिंग लीडर के रूप में बढ़ावा दें।";
+        } else if(score >= 50) {
+          grade = "B";
+          reason = "मध्यम प्रदर्शन, सुधार की गुंजाइश है।";
+          actionPlan = "सेल्स ट्रेनिंग और कोचिंग, टारगेट सुधार योजना।";
+        } else {
+          grade = "C";
+          reason = "कम प्रदर्शन, सुधार की आवश्यकता है।";
+          actionPlan = "3 महीने का सुधार प्रोग्राम, निरंतर मॉनिटरिंग।";
+        }
+        // सभी रिपोर्ट्स में ग्रेड डेटा जोड़ें
+        dailyReports.forEach(r => {
+          if(r.name === name) {
+            r.gradeData = { grade, reason, actionPlan, score: score.toFixed(2) };
+          }
+        });
+      });
+      localStorage.setItem("dailyReports", JSON.stringify(dailyReports));
+      renderReportsTable();
+      updateChart();
+      alert("ग्रेडिंग प्रोसेस पूरा हुआ!");
+    }
+
+    /* --- एडमिन रिपोर्ट CSV में डाउनलोड करें --- */
+    function downloadAdminReport() {
+      let csv = "Name,Branch,Report Date,Target,Achieved,Bills,Items,Grade,Reason,Action Plan\n";
+      let filtered = applyReportFilters();
+      filtered.forEach(r => {
+        let gradeData = r.gradeData || { grade: "", reason: "", actionPlan: "" };
+        csv += `${r.name},${r.branch},${r.reportDate},${r.dailyTarget},${r.achieved},${r.numBills},${r.numItems},${gradeData.grade},${gradeData.reason},${gradeData.actionPlan}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "admin_report.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /* --- Chart.js का उपयोग करके Sales Analysis Chart अपडेट करें --- */
+    function updateChart() {
+      const ctx = document.getElementById("analysisChart").getContext("2d");
+      let branchData = {};
+      dailyReports.forEach(r => {
+        if(!branchData[r.branch]) { branchData[r.branch] = { total: 0, count: 0 }; }
+        branchData[r.branch].total += r.achieved;
+        branchData[r.branch].count++;
+      });
+      const labels = Object.keys(branchData);
+      const data = labels.map(branch => (branchData[branch].total / branchData[branch].count).toFixed(2));
+      if(window.salesChart) { window.salesChart.destroy(); }
+      window.salesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'औसत अचीवमेंट (₹)',
+            data,
+            backgroundColor: '#1976d2'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    /* --- एडमिन यूजर प्रबंधन --- */
+    function addUser() {
+      const newName = document.getElementById("newUserName").value.trim();
+      const newBranch = document.getElementById("newUserBranch").value;
+      if(newName === "") { alert("यूजर का नाम आवश्यक है"); return; }
+      salesUsers.push({ name: newName, branch: newBranch });
+      localStorage.setItem("salesUsers", JSON.stringify(salesUsers));
+      renderUserList();
+      alert("यूजर जोड़ दिया गया!");
+      document.getElementById("newUserName").value = "";
+    }
+
+    function renderUserList() {
+      const userList = document.getElementById("userList");
+      userList.innerHTML = "";
+      salesUsers.forEach(user => {
+        const li = document.createElement("li");
+        li.textContent = `${user.name} (${user.branch})`;
+        userList.appendChild(li);
+      });
+    }
+
+    /* --- यदि कोई फिल्टर बदले तो रिपोर्ट रिफिल्टर करें --- */
+    function applyFilters() { renderReportsTable(); updateChart(); }
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Page Title</title>
+</head>
+<body>
+
+
+
+</body>
+</html>
